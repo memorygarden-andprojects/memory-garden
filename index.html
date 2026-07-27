@@ -28,14 +28,11 @@
 const { useState, useEffect } = React;
 
 // ====== CONFIG — edit these two lines yourself any time ======
-const GARDEN_CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vQYfS5TOP9z6c8ZKcA6Tk3eTZVfDLfSt_UtIi5cjq4c8uU7bCCIpfFdqZqyANu2rWZ1_IrCLvnepz_7/pub?gid=983307582&single=true&output=csv";
+const GARDEN_CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vQYfS5TOP9z6c8ZKcA6Tk3eTZVfDLfSt_UtIi5cjq4c8uU7bCCIpfFdqZqyANu2rWZ1_IrCLvnepz_7/pubhtml?gid=983307582&single=true";
 const SUBMIT_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxVe4JBdLG13zTZ5HyLjfGj25_UTXKw84hi3jl56Ew009BB4A5S_If3j9qjQ_fRmqnL/exec";
 // ===============================================================
 
-const MONTHS = [
-  "January", "February", "March", "April", "May", "June",
-  "July", "August", "September", "October", "November", "December",
-];
+const SEASONS = ["Spring", "Summer", "Fall", "Winter"];
 const currentYear = new Date().getFullYear();
 const YEARS = Array.from({ length: 80 }, (_, i) => currentYear - i);
 const FEELINGS = ["happiness", "sadness", "anger"];
@@ -50,10 +47,10 @@ const SEED_POSITIONS = [
   { id: "seed-6", x: 860, y: 320 },
 ];
 
-function yearsAgoLabel(month, year) {
+function yearsAgoLabel(season, year) {
   const diff = currentYear - Number(year);
-  if (diff <= 0) return `${month}, this year`;
-  return `${month}, ${diff} year${diff === 1 ? "" : "s"} ago`;
+  if (diff <= 0) return `${season}, this year`;
+  return `${season}, ${diff} year${diff === 1 ? "" : "s"} ago`;
 }
 
 function MemoryGarden() {
@@ -67,7 +64,7 @@ function MemoryGarden() {
   const [submitError, setSubmitError] = useState(false);
 
   const [form, setForm] = useState({
-    memory: "", firstName: "", month: "", year: "", feeling: "",
+    memory: "", firstName: "", season: "", year: "", feeling: "",
   });
 
   // Load published memories from the Garden sheet (CSV) on page load
@@ -88,14 +85,14 @@ function MemoryGarden() {
   const openSeed = (seedId) => {
     setActiveSeed(seedId);
     setSubmitError(false);
-    setForm({ memory: "", firstName: "", month: "", year: "", feeling: "" });
+    setForm({ memory: "", firstName: "", season: "", year: "", feeling: "" });
   };
 
   const closeModal = () => setActiveSeed(null);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!form.memory || !form.firstName || !form.month || !form.year || !form.feeling) return;
+    if (!form.memory || !form.firstName || !form.season || !form.year || !form.feeling) return;
 
     setSubmitting(true);
     setSubmitError(false);
@@ -158,7 +155,7 @@ function MemoryGarden() {
                 <p>"{s.memory}"</p>
                 <div style={{ display: "flex", flexWrap: "wrap", gap: 16, fontSize: 12, color: "rgba(20,83,45,0.7)" }}>
                   <span>by {s.firstName}</span>
-                  <span>{s.month} {s.year}</span>
+                  <span>{s.season} {s.year}</span>
                   <span>feeling: {s.feeling}</span>
                 </div>
               </div>
@@ -192,7 +189,7 @@ function MemoryGarden() {
             >
               <p style={{ fontSize: 14, color: "#052e16", margin: 0, lineHeight: 1.4 }}>"{p.text}"</p>
               <p style={{ fontSize: 12, color: "rgba(20,83,45,0.6)", marginTop: 8 }}>
-                by {p.name}, {yearsAgoLabel(p.month, p.year)}
+                by {p.name}, {yearsAgoLabel(p.season, p.year)}
               </p>
             </div>
           ))}
@@ -231,10 +228,10 @@ function MemoryGarden() {
 
               <div style={{ display: "flex", gap: 12 }}>
                 <div style={{ flex: 1 }}>
-                  <label style={labelStyle}>month</label>
-                  <select value={form.month} onChange={(e) => setForm({ ...form, month: e.target.value })} style={inputStyle}>
+                  <label style={labelStyle}>season</label>
+                  <select value={form.season} onChange={(e) => setForm({ ...form, season: e.target.value })} style={inputStyle}>
                     <option value="">select</option>
-                    {MONTHS.map((m) => <option key={m} value={m}>{m}</option>)}
+                    {SEASONS.map((s) => <option key={s} value={s}>{s}</option>)}
                   </select>
                 </div>
                 <div style={{ flex: 1 }}>
