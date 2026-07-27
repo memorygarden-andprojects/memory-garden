@@ -1,0 +1,285 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>the memory garden</title>
+
+<!-- React, ReactDOM, Babel (in-browser JSX), PapaParse (CSV parsing) -->
+<script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+<script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+<script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+<script src="https://unpkg.com/papaparse@5.4.1/papaparse.min.js"></script>
+
+<style>
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: "Courier New", Courier, monospace;
+    background-color: #eaf5ea;
+  }
+</style>
+</head>
+<body>
+
+<div id="root"></div>
+
+<script type="text/babel" data-type="module">
+const { useState, useEffect } = React;
+
+// ====== CONFIG — edit these two lines yourself any time ======
+const GARDEN_CSV_URL = "PASTE_YOUR_PUBLISHED_GARDEN_CSV_URL_HERE";
+const SUBMIT_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxVe4JBdLG13zTZ5HyLjfGj25_UTXKw84hi3jl56Ew009BB4A5S_If3j9qjQ_fRmqnL/exec";
+// ===============================================================
+
+const MONTHS = [
+  "January", "February", "March", "April", "May", "June",
+  "July", "August", "September", "October", "November", "December",
+];
+const currentYear = new Date().getFullYear();
+const YEARS = Array.from({ length: 80 }, (_, i) => currentYear - i);
+const FEELINGS = ["happiness", "sadness", "anger"];
+
+// Fixed demo seed slots — where visitors can plant new memories.
+const SEED_POSITIONS = [
+  { id: "seed-1", x: 120, y: 90 },
+  { id: "seed-2", x: 420, y: 160 },
+  { id: "seed-3", x: 720, y: 100 },
+  { id: "seed-4", x: 260, y: 340 },
+  { id: "seed-5", x: 600, y: 380 },
+  { id: "seed-6", x: 860, y: 320 },
+];
+
+function yearsAgoLabel(month, year) {
+  const diff = currentYear - Number(year);
+  if (diff <= 0) return `${month}, this year`;
+  return `${month}, ${diff} year${diff === 1 ? "" : "s"} ago`;
+}
+
+function MemoryGarden() {
+  const [plants, setPlants] = useState([]);
+  const [loadError, setLoadError] = useState(false);
+  const [activeSeed, setActiveSeed] = useState(null);
+  const [submissions, setSubmissions] = useState([]);
+  const [showInbox, setShowInbox] = useState(false);
+  const [confirmation, setConfirmation] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState(false);
+
+  const [form, setForm] = useState({
+    memory: "", firstName: "", month: "", year: "", feeling: "",
+  });
+
+  // Load published memories from the Garden sheet (CSV) on page load
+  useEffect(() => {
+    if (!GARDEN_CSV_URL || GARDEN_CSV_URL.startsWith("PASTE_")) {
+      setLoadError(true);
+      return;
+    }
+    fetch(GARDEN_CSV_URL)
+      .then((res) => res.text())
+      .then((csvText) => {
+        const parsed = Papa.parse(csvText, { header: true, skipEmptyLines: true });
+        setPlants(parsed.data);
+      })
+      .catch(() => setLoadError(true));
+  }, []);
+
+  const openSeed = (seedId) => {
+    setActiveSeed(seedId);
+    setSubmitError(false);
+    setForm({ memory: "", firstName: "", month: "", year: "", feeling: "" });
+  };
+
+  const closeModal = () => setActiveSeed(null);
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    if (!form.memory || !form.firstName || !form.month || !form.year || !form.feeling) return;
+
+    setSubmitting(true);
+    setSubmitError(false);
+
+    try {
+      await fetch(SUBMIT_SCRIPT_URL, {
+        method: "POST",
+        body: JSON.stringify({ ...form, seedId: activeSeed }),
+      });
+
+      setSubmissions((prev) => [...prev, { ...form, id: `sub-${Date.now()}`, seedId: activeSeed }]);
+      setActiveSeed(null);
+      setConfirmation(true);
+      setTimeout(() => setConfirmation(false), 2500);
+    } catch (err) {
+      setSubmitError(true);
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  return (
+    <div style={{ minHeight: "100vh", width: "100%" }}>
+      {/* Header */}
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "16px 24px" }}>
+        <div>
+          <h1 style={{ fontSize: 20, fontWeight: 500, color: "#14532d", margin: 0 }}>the memory garden</h1>
+          <p style={{ fontSize: 13, color: "rgba(20,83,45,0.7)", margin: "4px 0 0" }}>
+            click a red seed to plant a memory. it will be reviewed before it grows.
+          </p>
+        </div>
+        <button
+          onClick={() => setShowInbox((s) => !s)}
+          style={{ fontSize: 12, padding: "6px 12px", border: "1px solid rgba(20,83,45,0.4)", background: "transparent", color: "#14532d", cursor: "pointer" }}
+        >
+          {showInbox ? "back to garden" : `my test submissions (${submissions.length})`}
+        </button>
+      </div>
+
+      {confirmation && (
+        <div style={{ position: "fixed", top: 16, left: "50%", transform: "translateX(-50%)", background: "#14532d", color: "white", fontSize: 14, padding: "8px 16px", zIndex: 50 }}>
+          submitted — it'll be reviewed before it appears in the garden
+        </div>
+      )}
+
+      {loadError && (
+        <div style={{ maxWidth: 600, margin: "0 auto", padding: "12px 24px", fontSize: 13, color: "#7f1d1d" }}>
+          couldn't load published memories — check that GARDEN_CSV_URL is set correctly at the top of this file.
+        </div>
+      )}
+
+      {showInbox ? (
+        <div style={{ maxWidth: 640, margin: "0 auto", padding: "24px" }}>
+          <h2 style={{ fontSize: 16, fontWeight: 500, color: "#14532d" }}>my test submissions (this session only)</h2>
+          {submissions.length === 0 ? (
+            <p style={{ fontSize: 13, color: "rgba(20,83,45,0.6)" }}>nothing submitted yet — go plant a seed.</p>
+          ) : (
+            submissions.map((s) => (
+              <div key={s.id} style={{ background: "white", border: "1px solid rgba(20,83,45,0.2)", padding: 16, marginBottom: 12, fontSize: 14 }}>
+                <p>"{s.memory}"</p>
+                <div style={{ display: "flex", flexWrap: "wrap", gap: 16, fontSize: 12, color: "rgba(20,83,45,0.7)" }}>
+                  <span>by {s.firstName}</span>
+                  <span>{s.month} {s.year}</span>
+                  <span>feeling: {s.feeling}</span>
+                </div>
+              </div>
+            ))
+          )}
+        </div>
+      ) : (
+        <div style={{ position: "relative", width: "100%", height: 560 }}>
+          {SEED_POSITIONS.map((seed) => (
+            <button
+              key={seed.id}
+              onClick={() => openSeed(seed.id)}
+              title="plant a new memory here"
+              style={{
+                position: "absolute", left: seed.x, top: seed.y,
+                width: 28, height: 28, borderRadius: "50%",
+                backgroundColor: "#c0392b", border: "none", cursor: "pointer",
+                boxShadow: "0 2px 6px rgba(0,0,0,0.15)",
+              }}
+            />
+          ))}
+
+          {plants.map((p, i) => (
+            <div
+              key={p.id || i}
+              style={{
+                position: "absolute", left: Number(p.x) || 40 + i * 60, top: Number(p.y) || 400,
+                maxWidth: 220, background: "white", border: "1px solid rgba(20,83,45,0.2)",
+                padding: "12px 16px", boxShadow: "0 1px 3px rgba(0,0,0,0.08)",
+              }}
+            >
+              <p style={{ fontSize: 14, color: "#052e16", margin: 0, lineHeight: 1.4 }}>"{p.text}"</p>
+              <p style={{ fontSize: 12, color: "rgba(20,83,45,0.6)", marginTop: 8 }}>
+                by {p.name}, {yearsAgoLabel(p.month, p.year)}
+              </p>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {activeSeed && (
+        <div
+          onClick={closeModal}
+          style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.4)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 40, padding: 16 }}
+        >
+          <div onClick={(e) => e.stopPropagation()} style={{ background: "white", width: "100%", maxWidth: 420, padding: 24, border: "1px solid rgba(20,83,45,0.3)" }}>
+            <h3 style={{ fontSize: 16, fontWeight: 500, color: "#14532d", margin: "0 0 4px" }}>plant a memory</h3>
+            <p style={{ fontSize: 12, color: "rgba(20,83,45,0.6)", margin: "0 0 16px" }}>
+              it'll be reviewed before it appears in the garden.
+            </p>
+
+            <form onSubmit={handleSubmit}>
+              <label style={labelStyle}>memory</label>
+              <textarea
+                value={form.memory}
+                onChange={(e) => setForm({ ...form, memory: e.target.value })}
+                rows={3}
+                style={inputStyle}
+                placeholder="what happened?"
+              />
+
+              <label style={labelStyle}>first name</label>
+              <input
+                type="text"
+                value={form.firstName}
+                onChange={(e) => setForm({ ...form, firstName: e.target.value })}
+                style={inputStyle}
+                placeholder="your name"
+              />
+
+              <div style={{ display: "flex", gap: 12 }}>
+                <div style={{ flex: 1 }}>
+                  <label style={labelStyle}>month</label>
+                  <select value={form.month} onChange={(e) => setForm({ ...form, month: e.target.value })} style={inputStyle}>
+                    <option value="">select</option>
+                    {MONTHS.map((m) => <option key={m} value={m}>{m}</option>)}
+                  </select>
+                </div>
+                <div style={{ flex: 1 }}>
+                  <label style={labelStyle}>year</label>
+                  <select value={form.year} onChange={(e) => setForm({ ...form, year: e.target.value })} style={inputStyle}>
+                    <option value="">select</option>
+                    {YEARS.map((y) => <option key={y} value={y}>{y}</option>)}
+                  </select>
+                </div>
+              </div>
+
+              <label style={labelStyle}>feeling</label>
+              <select value={form.feeling} onChange={(e) => setForm({ ...form, feeling: e.target.value })} style={inputStyle}>
+                <option value="">select</option>
+                {FEELINGS.map((f) => <option key={f} value={f}>{f}</option>)}
+              </select>
+
+              {submitError && (
+                <p style={{ fontSize: 12, color: "#b91c1c" }}>
+                  something went wrong sending that — check your connection and try again.
+                </p>
+              )}
+
+              <div style={{ display: "flex", justifyContent: "flex-end", gap: 8, marginTop: 12 }}>
+                <button type="button" onClick={closeModal} style={{ fontSize: 14, padding: "8px 16px", background: "transparent", border: "none", color: "#14532d", cursor: "pointer" }}>
+                  cancel
+                </button>
+                <button type="submit" disabled={submitting} style={{ fontSize: 14, padding: "8px 16px", background: "#14532d", color: "white", border: "none", cursor: "pointer", opacity: submitting ? 0.5 : 1 }}>
+                  {submitting ? "sending..." : "submit for review"}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+const labelStyle = { display: "block", fontSize: 12, color: "#14532d", margin: "10px 0 4px" };
+const inputStyle = { width: "100%", border: "1px solid rgba(20,83,45,0.3)", padding: "8px 10px", fontSize: 14, fontFamily: "inherit", background: "white" };
+
+const root = ReactDOM.createRoot(document.getElementById("root"));
+root.render(<MemoryGarden />);
+</script>
+
+</body>
+</html>
